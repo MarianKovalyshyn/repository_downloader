@@ -1,8 +1,10 @@
 import logging
 import os
+import requests
+from datetime import date
 
 from dotenv import load_dotenv
-from telegram import Update, Bot
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
@@ -15,6 +17,10 @@ from telegram.ext import (
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
+LOGIN, PROJECT_NAME = range(2)
+BASE_URL = "https://api.github.com/repos/"
+END_URL = "zipball/"
+FINAL_URL = ""
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -30,30 +36,36 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def login(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def download_repo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Send /cancel to end operation.\n" "Enter user's login:",
     )
 
-    return 1
+    return LOGIN
 
 
-async def project_name(
+async def login(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
-    print(update.message.text)
+    global FINAL_URL
+    FINAL_URL += BASE_URL + update.message.text + "/"
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Enter project name:",
     )
 
-    return 2
+    return PROJECT_NAME
 
 
-async def goodbye(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(update.message.text)
+async def project_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global FINAL_URL
+    FINAL_URL += update.message.text + "/" + END_URL
+
+    file_name = f"{update.message.text}({date.today()}).zip"
+    open(file_name, "wb").write(requests.get(FINAL_URL).content)
+    FINAL_URL = ""
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -78,10 +90,10 @@ if __name__ == "__main__":
     application.add_handler(start_handler)
 
     download_repo_handler = ConversationHandler(
-        entry_points=[CommandHandler("downloadrepo", login)],
+        entry_points=[CommandHandler("downloadrepo", download_repo)],
         states={
-            1: [MessageHandler(filters.TEXT & ~filters.COMMAND, project_name)],
-            2: [MessageHandler(filters.TEXT & ~filters.COMMAND, goodbye)],
+            LOGIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, login)],
+            PROJECT_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, project_name)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
