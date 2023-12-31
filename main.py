@@ -21,6 +21,7 @@ LOGIN, PROJECT_NAME = range(2)
 BASE_URL = "https://api.github.com/repos/"
 END_URL = "zipball/"
 FINAL_URL = ""
+USERNAME = ""
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -45,11 +46,10 @@ async def download_repo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return LOGIN
 
 
-async def login(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
-    global FINAL_URL
+async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    global FINAL_URL, USERNAME
     FINAL_URL += BASE_URL + update.message.text + "/"
+    USERNAME = update.message.text
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -62,10 +62,13 @@ async def login(
 async def project_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global FINAL_URL
     FINAL_URL += update.message.text + "/" + END_URL
-
-    file_name = f"{update.message.text}({date.today()}).zip"
+    file_name = f"{update.message.text}[{USERNAME}]({date.today()}).zip"
     open(file_name, "wb").write(requests.get(FINAL_URL).content)
     FINAL_URL = ""
+
+    await context.bot.send_document(
+        chat_id=update.effective_chat.id, document=open(file_name, "rb")
+    )
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -93,7 +96,9 @@ if __name__ == "__main__":
         entry_points=[CommandHandler("downloadrepo", download_repo)],
         states={
             LOGIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, login)],
-            PROJECT_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, project_name)],
+            PROJECT_NAME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, project_name)
+            ],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
