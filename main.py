@@ -42,7 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def download_repo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Send /cancel to end operation.\n" "Enter user's login:",
+        text="Send /cancel to cancel operation.\nEnter user's login:",
     )
 
     return LOGIN
@@ -52,7 +52,6 @@ async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     global FINAL_URL, USERNAME
     USERNAME = update.message.text
     FINAL_URL += BASE_URL + USERNAME + "/"
-
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Enter project name:",
@@ -65,33 +64,34 @@ async def project_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global FINAL_URL, REPO_NAME
     REPO_NAME = update.message.text
     FINAL_URL += REPO_NAME + "/" + END_URL
+    local_projects = [project for project in glob.glob(f"{REPO_NAME}*.zip")]
+    project_to_use = ""
 
-    files = [file for file in glob.glob(f"{REPO_NAME}*.zip")]
-    file_to_use = ""
-
-    for file in files:
-        if f"[{USERNAME}]" in file:
-            file_to_use = file
+    for project in local_projects:
+        if f"[{USERNAME}]" in project:
+            project_to_use = project
             break
 
-    file_date = file_to_use[
-        file_to_use.find("(") + 1: file_to_use.find(")")
-    ]
-    date_object = datetime.strptime(file_date, "%Y-%m-%d").date()
     file_name = f"{REPO_NAME}[{USERNAME}]({date.today()}).zip"
 
-    if (date.today() - date_object).days > 7:
-        os.remove(file_to_use)
+    if not project_to_use:
         open(file_name, "wb").write(requests.get(FINAL_URL).content)
-        file_to_use = file_name
-        print("File downloaded")
+        project_to_use = file_name
+    else:
+        local_project_date = project_to_use[
+            project_to_use.find("(") + 1: project_to_use.find(")")
+        ]
+        local_project_date_object = datetime.strptime(local_project_date, "%Y-%m-%d").date()
+
+        if (date.today() - local_project_date_object).days > 7:
+            os.remove(project_to_use)
+            open(file_name, "wb").write(requests.get(FINAL_URL).content)
+            project_to_use = file_name
 
     FINAL_URL = ""
-
     await context.bot.send_document(
-        chat_id=update.effective_chat.id, document=open(file_to_use, "rb")
+        chat_id=update.effective_chat.id, document=open(project_to_use, "rb")
     )
-
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Done. Have a nice day!",
@@ -125,5 +125,4 @@ if __name__ == "__main__":
     application.add_handler(download_repo_handler)
     application.run_polling()
 
-# TODO 0) if file doens't exist, download it
 # TODO 1) divide code into functions
