@@ -73,10 +73,12 @@ async def project_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
             break
 
     file_name = f"{REPO_NAME}[{USERNAME}]({date.today()}).zip"
+    used_cached_file = True
 
     if not project_to_use:
         open(file_name, "wb").write(requests.get(FINAL_URL).content)
         project_to_use = file_name
+        used_cached_file = False
     else:
         local_project_date = project_to_use[
             project_to_use.find("(") + 1: project_to_use.find(")")
@@ -87,6 +89,12 @@ async def project_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(project_to_use)
             open(file_name, "wb").write(requests.get(FINAL_URL).content)
             project_to_use = file_name
+            used_cached_file = False
+
+    with open("logs.txt", "a") as file:
+        cached_or_downloaded = "cached" if used_cached_file else "downloaded"
+        file.write(f"Project {REPO_NAME} from {USERNAME}`s repository was send "
+                   f"on {date.today()} ({cached_or_downloaded})\n")
 
     FINAL_URL = ""
     await context.bot.send_document(
