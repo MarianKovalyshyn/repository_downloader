@@ -109,7 +109,7 @@ def download_project(file_name, project_url: str) -> str:
 
 def extract_project_date(project_to_send: str) -> date:
     local_project_date = project_to_send[
-        project_to_send.find("(") + 1 : project_to_send.find(")")
+        project_to_send.find("(") + 1: project_to_send.find(")")
     ]
     local_project_date_object = datetime.strptime(
         local_project_date, "%Y-%m-%d"
@@ -136,7 +136,7 @@ def prepare_project_to_send(
     repository_url: str,
     username: str,
     file_name: str = None,
-) -> (str, bool):
+) -> (str, str):
     project_to_send = find_cached_project(repository_name, username)
 
     if not project_to_send:
