@@ -15,15 +15,7 @@ from telegram.ext import (
     filters,
 )
 
-load_dotenv()
-
-TOKEN = os.getenv("TOKEN")
 LOGIN, PROJECT_NAME = range(2)
-BASE_URL = "https://api.github.com/repos/"
-END_URL = "zipball/"
-FINAL_URL = ""
-USERNAME = ""
-REPO_NAME = ""
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -50,9 +42,7 @@ async def download_repo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    global FINAL_URL, USERNAME
-    USERNAME = update.message.text
-    FINAL_URL += BASE_URL + USERNAME + "/"
+    context.user_data["username"] = update.message.text
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Enter *project name*:",
@@ -63,19 +53,21 @@ async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def project_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global FINAL_URL, REPO_NAME
-    REPO_NAME = update.message.text
-    FINAL_URL += REPO_NAME + "/" + END_URL
-    file_name = f"{REPO_NAME}[{USERNAME}]({date.today()}).zip"
-    project_to_send = prepare_project_to_send(
-        repository_name=REPO_NAME,
-        repository_url=FINAL_URL,
-        username=USERNAME,
+    base_url = "https://api.github.com/repos/"
+    end_url = "zipball/"
+    repo_name = update.message.text
+    username = context.user_data["username"]
+    final_url = base_url + username + "/" + repo_name + "/" + end_url
+    file_name = f"{repo_name}[{username}]({date.today()}).zip"
+    project_to_send, used_cached_file = prepare_project_to_send(
+        repository_name=repo_name,
+        repository_url=final_url,
+        username=username,
         file_name=file_name,
     )
-    FINAL_URL = ""
 
     if project_to_send:
+        log_action(repo_name, username, used_cached_file)
         await context.bot.send_document(
             chat_id=update.effective_chat.id, document=open(project_to_send, "rb")
         )
@@ -126,12 +118,12 @@ def extract_project_date(project_to_send: str) -> date:
 
 
 def update_project_if_needed(
-    project_to_send: str, project_date: date, file_name: str, used_cached_file: bool
+    project_to_send: str, project_date: date, file_name: str, used_cached_file: bool, final_url: str
 ):
     if (date.today() - project_date).days > 7:
         os.remove(project_to_send)
         project_to_send, used_cached_file = download_project(
-            file_name, FINAL_URL
+            file_name, final_url
         )
 
     return project_to_send, used_cached_file
@@ -156,12 +148,10 @@ def prepare_project_to_send(
             project_date=project_date,
             file_name=file_name,
             used_cached_file=True,
+            final_url=repository_url,
         )
 
-    if project_to_send:
-        log_action(REPO_NAME, USERNAME, used_cached_file)
-
-    return project_to_send
+    return project_to_send, used_cached_file
 
 
 def log_action(
@@ -176,6 +166,7 @@ def log_action(
 
 
 if __name__ == "__main__":
+    load_dotenv()
     start_handler = CommandHandler("start", start)
     download_repo_handler = ConversationHandler(
         entry_points=[CommandHandler("downloadrepo", download_repo)],
@@ -187,7 +178,7 @@ if __name__ == "__main__":
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
-    application = ApplicationBuilder().token(TOKEN).build()
+    application = ApplicationBuilder().token(os.getenv("TOKEN")).build()
     application.add_handler(start_handler)
     application.add_handler(download_repo_handler)
     application.run_polling()
