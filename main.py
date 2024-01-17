@@ -103,7 +103,7 @@ def download_project(file_name, project_url: str) -> str:
     if response.status_code == 404:
         return ""
     else:
-        open(file_name, "wb").write(requests.get(project_url).content)
+        open(file_name, "wb").write(response.content)
     return file_name
 
 
@@ -179,3 +179,6 @@ if __name__ == "__main__":
     application.add_handler(start_handler)
     application.add_handler(download_repo_handler)
     application.run_polling()
+
+# TODO add tests
+# TODO add info to README
