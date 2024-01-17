@@ -75,13 +75,19 @@ async def project_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     FINAL_URL = ""
 
-    await context.bot.send_document(
-        chat_id=update.effective_chat.id, document=open(project_to_send, "rb")
-    )
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Done. Have a nice day!",
-    )
+    if project_to_send:
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id, document=open(project_to_send, "rb")
+        )
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Done. Have a nice day!",
+        )
+    else:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="User or repository not found. Try again.",
+        )
 
     return ConversationHandler.END
 
@@ -100,7 +106,11 @@ def find_cached_project(repository_name: str, username: str) -> str | None:
 
 
 def download_project(file_name, project_url: str) -> (str, bool):
-    open(file_name, "wb").write(requests.get(project_url).content)
+    response = requests.get(project_url)
+    if response.status_code == 404:
+        return "", False
+    else:
+        open(file_name, "wb").write(requests.get(project_url).content)
     return file_name, False
 
 
@@ -148,7 +158,8 @@ def prepare_project_to_send(
             used_cached_file=True,
         )
 
-    log_action(REPO_NAME, USERNAME, used_cached_file)
+    if project_to_send:
+        log_action(REPO_NAME, USERNAME, used_cached_file)
 
     return project_to_send
 
