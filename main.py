@@ -13,7 +13,7 @@ from telegram.ext import (
     filters,
 )
 
-from tools import prepare_project_to_send, log_action
+from utils import prepare_project_to_send, log_action
 
 LOGIN, PROJECT_NAME = range(2)
 
