@@ -59,7 +59,7 @@ async def project_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = context.user_data["username"]
     final_url = base_url + username + "/" + repo_name + "/" + end_url
     file_name = f"{repo_name}[{username}]({date.today()}).zip"
-    project_to_send, used_cached_file = prepare_project_to_send(
+    project_to_send, file_status = prepare_project_to_send(
         repository_name=repo_name,
         repository_url=final_url,
         username=username,
@@ -67,9 +67,10 @@ async def project_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if project_to_send:
-        log_action(repo_name, username, used_cached_file)
+        log_action(repo_name, username, file_status)
         await context.bot.send_document(
-            chat_id=update.effective_chat.id, document=open(project_to_send, "rb")
+            chat_id=update.effective_chat.id,
+            document=open(project_to_send, "rb"),
         )
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -97,18 +98,18 @@ def find_cached_project(repository_name: str, username: str) -> str | None:
     return local_project[0] if local_project else None
 
 
-def download_project(file_name, project_url: str) -> (str, bool):
+def download_project(file_name, project_url: str) -> str:
     response = requests.get(project_url)
     if response.status_code == 404:
-        return "", False
+        return ""
     else:
         open(file_name, "wb").write(requests.get(project_url).content)
-    return file_name, False
+    return file_name
 
 
 def extract_project_date(project_to_send: str) -> date:
     local_project_date = project_to_send[
-        project_to_send.find("(") + 1: project_to_send.find(")")
+        project_to_send.find("(") + 1 : project_to_send.find(")")
     ]
     local_project_date_object = datetime.strptime(
         local_project_date, "%Y-%m-%d"
@@ -118,15 +119,16 @@ def extract_project_date(project_to_send: str) -> date:
 
 
 def update_project_if_needed(
-    project_to_send: str, project_date: date, file_name: str, used_cached_file: bool, final_url: str
-):
-    if (date.today() - project_date).days > 7:
-        os.remove(project_to_send)
-        project_to_send, used_cached_file = download_project(
-            file_name, final_url
-        )
+    project_to_send: str, project_date: date, file_name: str, final_url: str
+) -> (str, str):
+    file_status = "cached"
 
-    return project_to_send, used_cached_file
+    if (date.today() - project_date).days > 7:
+        file_status = "updated"
+        os.remove(project_to_send)
+        project_to_send = download_project(file_name, final_url)
+
+    return project_to_send, file_status
 
 
 def prepare_project_to_send(
@@ -138,30 +140,25 @@ def prepare_project_to_send(
     project_to_send = find_cached_project(repository_name, username)
 
     if not project_to_send:
-        project_to_send, used_cached_file = download_project(
-            file_name, repository_url
-        )
+        file_status = "downloaded"
+        project_to_send = download_project(file_name, repository_url)
     else:
         project_date = extract_project_date(project_to_send)
-        project_to_send, used_cached_file = update_project_if_needed(
+        project_to_send, file_status = update_project_if_needed(
             project_to_send=project_to_send,
             project_date=project_date,
             file_name=file_name,
-            used_cached_file=True,
             final_url=repository_url,
         )
 
-    return project_to_send, used_cached_file
+    return project_to_send, file_status
 
 
-def log_action(
-    repository_name: str, username: str, used_cached_file: bool = False
-) -> None:
+def log_action(repository_name: str, username: str, file_status: str) -> None:
     with open("logs.txt", "a") as file:
-        cached_or_downloaded = "cached" if used_cached_file else "downloaded"
         file.write(
             f"Project {repository_name} from {username}`s repository was send "
-            f"on {datetime.now()} ({cached_or_downloaded})\n"
+            f"on {datetime.now()} ({file_status})\n"
         )
 
 
