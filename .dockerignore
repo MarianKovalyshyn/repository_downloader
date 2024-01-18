@@ -1,0 +1,4 @@
+*.png
+README.md
+*.zip
+.env.sample
