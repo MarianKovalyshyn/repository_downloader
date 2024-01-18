@@ -12,10 +12,13 @@ def find_cached_project(repository_name: str, username: str) -> str | None:
 
 def download_project(file_name, project_url: str) -> str:
     response = requests.get(project_url)
+
     if response.status_code == 404:
         return ""
     else:
-        open(file_name, "wb").write(response.content)
+        with open(file_name, "wb") as file:
+            file.write(response.content)
+
     return file_name
 
 

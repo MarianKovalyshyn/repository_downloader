@@ -68,10 +68,12 @@ async def project_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if project_to_send:
         log_action(repo_name, username, file_status)
+        file = open(project_to_send, "rb")
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
-            document=open(project_to_send, "rb"),
+            document=file,
         )
+        file.close()
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Done. Have a nice day!",
@@ -110,6 +112,3 @@ if __name__ == "__main__":
     application.add_handler(start_handler)
     application.add_handler(download_repo_handler)
     application.run_polling()
-
-# TODO add tests
-# TODO add info to README
